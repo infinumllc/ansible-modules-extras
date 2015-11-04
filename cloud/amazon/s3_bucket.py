@@ -129,21 +129,32 @@ def create_tags_container(tags):
     tags_obj.add_tag_set(tag_set)
     return tags_obj
 
+def region_to_location(region):
+    if region in ('us-east-1', '', None):
+        # S3ism for the US Standard region
+        location = Location.DEFAULT
+    else:
+        # Boto uses symbolic names for locations but region strings will
+        # actually work fine for everything except us-east-1 (US Standard)
+        location = region
+    return location
+
 def create_bucket(connection, module):
     
     policy = module.params.get("policy")
     name = module.params.get("name")
     region = module.params.get("region")
+    location = region_to_location(region)
     requester_pays = module.params.get("requester_pays")
     tags = module.params.get("tags")
     versioning = module.params.get("versioning")
     changed = False
-    
+
     try:
         bucket = connection.get_bucket(name)
     except S3ResponseError, e:
         try:
-            bucket = connection.create_bucket(name, location=region)
+            bucket = connection.create_bucket(name, location=location)
             changed = True
         except S3CreateError, e:
             module.fail_json(msg=e.message)
@@ -330,13 +341,7 @@ def main():
     
     region, ec2_url, aws_connect_params = get_aws_connection_info(module)
 
-    if region in ('us-east-1', '', None):
-        # S3ism for the US Standard region
-        location = Location.DEFAULT
-    else:
-        # Boto uses symbolic names for locations but region strings will
-        # actually work fine for everything except us-east-1 (US Standard)
-        location = region
+    location = region_to_location(region)
 
     s3_url = module.params.get('s3_url')
 
